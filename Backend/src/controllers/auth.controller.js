@@ -2,6 +2,7 @@ const userModel = require('../models/user.model');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const blacklistTokenModel = require('../models/blacklist.model');
+const { id } = require('zod/v4/locales');
 
 
 async function registerUserController(req, res) {
@@ -28,7 +29,7 @@ async function registerUserController(req, res) {
         password: hashedPassword
     });
     
-    const token = jwt.sign({ userId: newUser._id}, process.env.JWT_SECRET, { expiresIn: '1d' });
+    const token = jwt.sign({ id: newUser._id}, process.env.JWT_SECRET, { expiresIn: '1d' });
 
     res.cookie('token', token);
 
@@ -60,7 +61,7 @@ async function loginUserController(req, res) {
         return res.status(400).json({ message: "Invalid email or password" });
     }
 
-    const token = jwt.sign({ userId: user._id}, process.env.JWT_SECRET, { expiresIn: '1d' });
+    const token = jwt.sign({ id: user._id}, process.env.JWT_SECRET, { expiresIn: '1d' });
 
     res.cookie('token', token);
 
@@ -93,7 +94,7 @@ async function logoutUserController(req, res) {
 
 async function getMeController(req, res) {
 
-    const user = await userModel.findById(req.user.userId);
+    const user = await userModel.findById(req.user.id);
 
     res.status(200).json({
         message: "User details fetched successfully",
