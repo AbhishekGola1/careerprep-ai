@@ -12,7 +12,7 @@ const interviewRouter = express.Router();
  * @description generate new interview report on the basis of user self description, resume and job description
  * @access Private
  */
-interviewRouter.post("/", authMiddleware.authUser, upload.single('resume'), interviewController.generateInterviewReportController)
+interviewRouter.post("/", authMiddleware.authUser, upload.single("resume"), interviewController.generateInterviewReportController)
 
 /**
  * @route GET  /api/interview/report/:interviewId

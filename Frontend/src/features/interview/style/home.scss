@@ -16,6 +16,10 @@ $info-bg:        #1b2a4a;
 $info-border:    #2d4a7a;
 $font-stack:     system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
+*::-webkit-scrollbar {
+    display: none;
+}
+
 // ── Page Shell ───────────────────────────────────────────────────────────────
 .home-page {
     width: 100%;

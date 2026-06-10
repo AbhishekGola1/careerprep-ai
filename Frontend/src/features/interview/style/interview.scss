@@ -15,6 +15,9 @@ $severity-high:   #ff4d4d;
 $severity-medium: #f5a623;
 $severity-low:    #3fb950;
 
+*::-webkit-scrollbar {
+    display: none;
+}
 
 // ── Page Shell ───────────────────────────────────────────────────────────────
 .interview-page {
