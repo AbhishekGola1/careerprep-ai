@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import '../style/interview.scss'
 import { useInterview } from '../hooks/useInterview.js'
+import { useNavigate, useParams } from 'react-router'
 
 
 const NAV_ITEMS = [
@@ -57,8 +58,23 @@ const RoadMapDay = ({ day }) => (
 // ── Main Component ────────────────────────────────────────────────────────────
 const Interview = () => {
     const [ activeNav, setActiveNav ] = useState('technical')
-    const { report } = useInterview()
+    const { report, getReportById, loading } = useInterview()
+    const { interviewId } = useParams()
 
+    useEffect(() => {
+        if (interviewId) {
+            getReportById(interviewId)      
+        }
+    }, [ interviewId ])
+
+    if (loading || !report) {
+        return (
+            <main className='loading-screen'>
+                <h1>Loading your interview plan.....</h1>
+            </main>
+        )
+    }
+    
     const scoreColor =
         report.matchScore >= 80 ? 'score--high' :
         report.matchScore >= 60 ? 'score--mid' : 'score--low'
