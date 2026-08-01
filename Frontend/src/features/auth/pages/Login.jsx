@@ -11,10 +11,24 @@ const Login = () => {
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
 
+    const demoCredentials = {
+        email: 'recruiter@example.com',
+        password: 'demo1234'
+    }
+
     const handleSubmit = async (e) => {
         e.preventDefault()
-        await handleLogin({ email, password })
-        navigate('/')
+        const success = await handleLogin({ email, password })
+        if (success) {
+            navigate('/')
+        }
+    }
+
+    const handleDemoLogin = async () => {
+        const success = await handleLogin(demoCredentials)
+        if (success) {
+            navigate('/')
+        }
     }
 
     if (loading) {
@@ -43,7 +57,11 @@ const Login = () => {
                         type="password" id="password" name='password' placeholder='Enter password' />
                 </div>
 
-                <button className='button primary-button'>Login</button>
+                <button className='button primary-button' type='submit'>Login</button>
+
+                <button className='button secondary-button' type='button' onClick={handleDemoLogin}>
+                    Demo User 
+                </button>
 
             </form>
 
