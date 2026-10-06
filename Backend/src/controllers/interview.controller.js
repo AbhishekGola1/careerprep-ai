@@ -1,4 +1,4 @@
-const pdfParse = require('pdf-parse');
+const { PDFParse } = require('pdf-parse');
 const { generateInterviewReport, generateResumePdf } = require('../services/ai.service');
 const interviewReportModel = require('../models/interviewReport.model');
 
@@ -23,8 +23,13 @@ async function generateInterviewReportController(req, res) {
                 return res.status(400).json({ message: 'The uploaded file is not a valid PDF' });
             }
 
-            const parsedPdf = await pdfParse(req.file.buffer);
-            resumeText = parsedPdf.text || '';
+            const parser = new PDFParse({ data: req.file.buffer });
+            try {
+                const parsedPdf = await parser.getText();
+                resumeText = parsedPdf.text || '';
+            } finally {
+                await parser.destroy();
+            }
         }
 
         const interviewReportByAi = await generateInterviewReport({
