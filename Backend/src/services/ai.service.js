@@ -160,23 +160,50 @@ async function generatePdfFromHtml(htmlContent) {
     }
 }
 
-async function generateResumePdf({ resume, selfDescription, jobDescription }) {
-    const resumePdfSchema = z.object({
-        html: z.string().describe('The HTML content of the resume which can be converted to PDF using Puppeteer')
-    });
+async function generateResumePdf({ resume, selfDescription, jobDescription, title }) {
+    const escapeHtml = (value) => String(value || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
 
-    const prompt = `Generate a resume for a candidate with the following details:
-        Resume: ${resume || 'Not provided'}
-        Self Description: ${selfDescription || 'Not provided'}
-        Job Description: ${jobDescription || 'Not provided'}
+    const profileText = (resume || '').trim() || (selfDescription || '').trim();
+    const paragraphs = profileText
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => `<p>${escapeHtml(line)}</p>`)
+        .join('\n');
 
-        Return a JSON object with a single field "html" that contains the full HTML content of a polished, ATS-friendly resume tailored for the given job description.
-    `;
+    const html = `<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Resume</title>
+    <style>
+        @page { size: A4; margin: 18mm; }
+        body { color: #202a35; font: 11pt Arial, sans-serif; line-height: 1.5; }
+        header { border-bottom: 2px solid #283c50; margin-bottom: 22px; padding-bottom: 12px; }
+        h1 { color: #172b40; font-size: 20pt; margin: 0 0 5px; }
+        h2 { color: #172b40; font-size: 13pt; margin: 20px 0 8px; }
+        .target { color: #586a7a; font-size: 10pt; margin: 0; }
+        p { margin: 0 0 7px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>${escapeHtml(title || 'Professional Resume')}</h1>
+        <p class="target">${escapeHtml((jobDescription || '').split(/\r?\n/, 1)[0].slice(0, 160))}</p>
+    </header>
+    <main>
+        <h2>Professional Experience and Qualifications</h2>
+        ${paragraphs || `<p>${escapeHtml(selfDescription || 'No resume or profile details were provided.')}</p>`}
+    </main>
+</body>
+</html>`;
 
-    const response = await generateContentWithFallback(prompt, resumePdfSchema);
-
-    const jsonContent = JSON.parse(response.text);
-    return await generatePdfFromHtml(jsonContent.html);
+    return generatePdfFromHtml(html);
 }
 
 module.exports = { generateInterviewReport, generateResumePdf };
