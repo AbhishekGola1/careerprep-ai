@@ -369,6 +369,13 @@ $severity-low:    #3fb950;
     gap: 1.25rem;
 }
 
+.resume-download-error {
+    margin: 0;
+    color: #ff9cae;
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
 .sidebar-divider {
     height: 1px;
     background-color: $border-color;
@@ -485,4 +492,3 @@ $severity-low:    #3fb950;
         border-color: rgba($severity-low, 0.25);
     }
 }
-
