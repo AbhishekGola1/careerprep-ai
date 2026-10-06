@@ -1,4 +1,5 @@
 const { PDFParse } = require('pdf-parse');
+const mongoose = require('mongoose');
 const { generateInterviewReport, generateResumePdf } = require('../services/ai.service');
 const interviewReportModel = require('../models/interviewReport.model');
 
@@ -100,22 +101,34 @@ async function getAllInterviewReportsController(req, res) {
 async function generateResumePdfController(req, res) {
     const { interviewReportId } = req.params;
 
-    const interviewReport = await interviewReportModel.findById(interviewReportId);
-
-    if (!interviewReport) {
-        return res.status(404).json({ message: 'Interview report not found' });
+    if (!mongoose.isValidObjectId(interviewReportId)) {
+        return res.status(400).json({ message: 'Invalid interview report ID' });
     }
 
-    const { resume, selfDescription, jobDescription } = interviewReport;
+    try {
+        const interviewReport = await interviewReportModel.findOne({
+            _id: interviewReportId,
+            user: req.user.id
+        });
 
-    const pdfBuffer = await generateResumePdf({ resume, selfDescription, jobDescription });
+        if (!interviewReport) {
+            return res.status(404).json({ message: 'Interview report not found' });
+        }
 
-    res.set({
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="resume_${interviewReportId}.pdf"`
-    });
+        const { resume, selfDescription, jobDescription, title } = interviewReport;
 
-    return res.send(pdfBuffer);
+        const pdfBuffer = await generateResumePdf({ resume, selfDescription, jobDescription, title });
+
+        res.set({
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="resume_${interviewReportId}.pdf"`
+        });
+
+        return res.send(pdfBuffer);
+    } catch (error) {
+        console.error('generateResumePdfController error:', error);
+        return res.status(500).json({ message: 'Resume PDF generation failed. Please try again.' });
+    }
 }
 
 module.exports = { generateInterviewReportController, getInterviewReportByIdController, getAllInterviewReportsController, generateResumePdfController };
