@@ -36,10 +36,33 @@ function isTemporaryModelFailure(error) {
 
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
+function toGeminiResponseSchema(zodSchema) {
+    const jsonSchema = z.toJSONSchema(zodSchema);
+
+    const removeUnsupportedFields = (value) => {
+        if (Array.isArray(value)) {
+            return value.map(removeUnsupportedFields);
+        }
+
+        if (value && typeof value === 'object') {
+            return Object.fromEntries(
+                Object.entries(value)
+                    .filter(([key]) => key !== '$schema' && key !== 'additionalProperties')
+                    .map(([key, child]) => [key, removeUnsupportedFields(child)])
+            );
+        }
+
+        return value;
+    };
+
+    return removeUnsupportedFields(jsonSchema);
+}
+
 async function generateContentWithFallback(contents, responseSchema) {
     const models = [...new Set([primaryModel, fallbackModel])];
     let lastError;
     let retryNumber = 0;
+    const geminiResponseSchema = toGeminiResponseSchema(responseSchema);
 
     for (const model of models) {
         for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -49,7 +72,7 @@ async function generateContentWithFallback(contents, responseSchema) {
                     contents,
                     config: {
                         responseMimeType: 'application/json',
-                        responseSchema
+                        responseSchema: geminiResponseSchema
                     }
                 });
             } catch (error) {
