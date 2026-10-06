@@ -54,23 +54,16 @@ export const useInterview = () => {
     }, [setLoading, setReports])
 
     const getResumePdf = useCallback(async (interviewReportId) => {
-        setLoading(true)
-        try {
-            const response = await generateResumePdf({ interviewReportId })
-            const url = window.URL.createObjectURL(new Blob([response], { type: 'application/pdf' }))
-            const link = document.createElement('a')
-            link.href = url
-            link.setAttribute('download', `resume_${interviewReportId}.pdf`)
-            document.body.appendChild(link)
-            link.click()
-            document.body.removeChild(link)
-            window.URL.revokeObjectURL(url)
-        } catch (error) {
-            console.log(error)
-        } finally {
-            setLoading(false)
-        }
-    }, [setLoading])
+        const response = await generateResumePdf({ interviewReportId })
+        const url = window.URL.createObjectURL(new Blob([response], { type: 'application/pdf' }))
+        const link = document.createElement('a')
+        link.href = url
+        link.setAttribute('download', `resume_${interviewReportId}.pdf`)
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.setTimeout(() => window.URL.revokeObjectURL(url), 1000)
+    }, [])
 
     return { loading, report, reports, generateReport, getReportById, getReports, getResumePdf }
 
