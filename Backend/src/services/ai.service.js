@@ -246,6 +246,8 @@ function generateResumePdf({ resume, selfDescription, jobDescription, title }) {
     const { name, contact, sections } = parseResumeSections(resume, selfDescription);
     const document = new PDFDocument({ size: 'A4', margins: { top: 34, right: 38, bottom: 34, left: 38 } });
     const chunks = [];
+    document.info.Title = `${name || 'Professional'} - ATS Resume`;
+    document.info.Author = name || 'CareerPrep AI';
 
     return new Promise((resolve, reject) => {
         document.on('data', (chunk) => chunks.push(chunk));
@@ -257,69 +259,90 @@ function generateResumePdf({ resume, selfDescription, jobDescription, title }) {
         const bottom = document.page.height - document.page.margins.bottom;
         const layout = {
             y: document.page.margins.top,
-            bodyFont: 8.5,
-            bodyLineGap: 1,
-            sectionFont: 9.5,
-            sectionGap: 4
+            bodyFont: 9,
+            bodyLineGap: 1.5,
+            sectionFont: 10,
+            sectionGap: 7
         };
 
         const drawText = (text, font, fontSize, options = {}) => {
             document.font(font).fontSize(fontSize);
             const height = document.heightOfString(text, {
                 width,
-                lineGap: options.lineGap || 0
+                lineGap: options.lineGap || 0,
+                indent: options.indent || 0
             });
             if (layout.y + height > bottom) {
                 return false;
             }
-            document.fillColor('#111111').text(text, left, layout.y, {
+            document.fillColor(options.color || '#222222').text(text, left, layout.y, {
                 width,
-                lineGap: options.lineGap || 0
+                lineGap: options.lineGap || 0,
+                indent: options.indent || 0
             });
             layout.y += height + (options.after || 0);
             return true;
         };
 
-        const drawFittingEntry = (entry) => {
-            const text = entry;
-            if (drawText(text, 'Helvetica', layout.bodyFont, {
-                lineGap: layout.bodyLineGap,
-                after: 1
-            })) {
-                return true;
-            }
-
-            const words = text.split(/\s+/);
-            let low = 0;
-            let high = words.length - 1;
-            let fittingText = '';
-            while (low <= high) {
-                const middle = Math.floor((low + high) / 2);
-                const candidate = `${words.slice(0, middle).join(' ')}...`;
-                document.font('Helvetica').fontSize(layout.bodyFont);
-                const height = document.heightOfString(candidate, { width, lineGap: layout.bodyLineGap });
-                if (layout.y + height <= bottom) {
-                    fittingText = candidate;
-                    low = middle + 1;
+        const drawContact = () => {
+            const rows = [];
+            let currentRow = '';
+            document.font('Helvetica').fontSize(8.5);
+            for (const item of contact) {
+                const candidate = currentRow ? `${currentRow}  |  ${item}` : item;
+                if (currentRow && document.widthOfString(candidate) > width) {
+                    rows.push(currentRow);
+                    currentRow = item;
                 } else {
-                    high = middle - 1;
+                    currentRow = candidate;
                 }
             }
-            if (fittingText) {
-                drawText(fittingText, 'Helvetica', layout.bodyFont, {
-                    lineGap: layout.bodyLineGap,
+            if (currentRow) {
+                rows.push(currentRow);
+            }
+            for (const row of rows) {
+                if (!drawText(row, 'Helvetica', 8.5, { color: '#444444', after: 1 })) {
+                    return false;
+                }
+            }
+            layout.y += 3;
+            return true;
+        };
+
+        const drawEntry = (entry, sectionName) => {
+            const looksLikeProjectDescription =
+                /^(?:built|created|developed|designed|implemented|integrated|led|managed|improved|automated|deployed|delivered|engineered|maintained|optimized|reduced|increased|launched|used|worked|collaborated|contributed|responsible)\b/i
+                    .test(entry);
+            if (sectionName === 'PROJECTS' && !entry.startsWith('•') &&
+                entry.length <= 65 && entry.split(/\s+/).length <= 9 &&
+                !looksLikeProjectDescription && !/:/.test(entry) && !/[.!?]$/.test(entry)) {
+                return drawText(entry, 'Helvetica-Bold', layout.bodyFont, {
+                    color: '#222222',
                     after: 1
                 });
             }
-            return false;
+
+            if (sectionName === 'PROJECTS' && !entry.startsWith('•')) {
+                entry = `• ${entry}`;
+            }
+
+            const isBullet = entry.startsWith('•');
+            return drawText(entry, 'Helvetica', layout.bodyFont, {
+                lineGap: layout.bodyLineGap,
+                indent: isBullet ? 10 : 0,
+                after: 2
+            });
         };
 
-        drawText(name || 'PROFESSIONAL RESUME', 'Helvetica-Bold', 16, { after: 2 });
+        drawText(name || 'PROFESSIONAL RESUME', 'Helvetica-Bold', 18, {
+            color: '#17365d',
+            after: 2
+        });
         if (title) {
-            drawText(title, 'Helvetica-Bold', 9.5, { after: 2 });
+            drawText(title, 'Helvetica-Bold', 10, { color: '#333333', after: 3 });
         }
         if (contact.length) {
-            drawText(contact.join('  |  '), 'Helvetica', 8, { after: 5 });
+            drawContact();
         }
 
         for (const section of sections) {
@@ -328,11 +351,22 @@ function generateResumePdf({ resume, selfDescription, jobDescription, title }) {
             }
 
             layout.y += layout.sectionGap;
-            if (!drawText(section.name, 'Helvetica-Bold', layout.sectionFont, { after: 1 })) {
+            if (!drawText(section.name, 'Helvetica-Bold', layout.sectionFont, {
+                color: '#17365d',
+                after: 2
+            })) {
                 break;
             }
+            document.save()
+                .moveTo(left, layout.y)
+                .lineTo(left + width, layout.y)
+                .lineWidth(0.5)
+                .strokeColor('#aab4c0')
+                .stroke()
+                .restore();
+            layout.y += 4;
             for (const entry of section.entries) {
-                if (!drawFittingEntry(entry)) {
+                if (!drawEntry(entry, section.name)) {
                     break;
                 }
             }
