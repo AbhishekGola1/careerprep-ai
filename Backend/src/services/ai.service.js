@@ -1,6 +1,6 @@
 const { GoogleGenAI } = require('@google/genai');
 const { z } = require('zod');
-const puppeteer = require('puppeteer');
+const PDFDocument = require('pdfkit');
 
 const ai = new GoogleGenAI({
     apiKey: process.env.GOOGLE_GENAI_API_KEY
@@ -145,65 +145,47 @@ async function generateInterviewReport({ resume, selfDescription, jobDescription
     return JSON.parse(response.text);
 }
 
-async function generatePdfFromHtml(htmlContent) {
-    const browser = await puppeteer.launch({
-        headless: 'new',
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-
-    try {
-        const page = await browser.newPage();
-        await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-        return await page.pdf({ format: 'A4', printBackground: true });
-    } finally {
-        await browser.close();
-    }
-}
-
-async function generateResumePdf({ resume, selfDescription, jobDescription, title }) {
-    const escapeHtml = (value) => String(value || '')
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#039;');
-
+function generateResumePdf({ resume, selfDescription, jobDescription, title }) {
     const profileText = (resume || '').trim() || (selfDescription || '').trim();
-    const paragraphs = profileText
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line) => `<p>${escapeHtml(line)}</p>`)
-        .join('\n');
+    const target = (jobDescription || '').split(/\r?\n/, 1)[0].slice(0, 160);
+    const document = new PDFDocument({ size: 'A4', margin: 51 });
+    const chunks = [];
 
-    const html = `<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <title>Resume</title>
-    <style>
-        @page { size: A4; margin: 18mm; }
-        body { color: #202a35; font: 11pt Arial, sans-serif; line-height: 1.5; }
-        header { border-bottom: 2px solid #283c50; margin-bottom: 22px; padding-bottom: 12px; }
-        h1 { color: #172b40; font-size: 20pt; margin: 0 0 5px; }
-        h2 { color: #172b40; font-size: 13pt; margin: 20px 0 8px; }
-        .target { color: #586a7a; font-size: 10pt; margin: 0; }
-        p { margin: 0 0 7px; white-space: pre-wrap; overflow-wrap: anywhere; }
-    </style>
-</head>
-<body>
-    <header>
-        <h1>${escapeHtml(title || 'Professional Resume')}</h1>
-        <p class="target">${escapeHtml((jobDescription || '').split(/\r?\n/, 1)[0].slice(0, 160))}</p>
-    </header>
-    <main>
-        <h2>Professional Experience and Qualifications</h2>
-        ${paragraphs || `<p>${escapeHtml(selfDescription || 'No resume or profile details were provided.')}</p>`}
-    </main>
-</body>
-</html>`;
+    return new Promise((resolve, reject) => {
+        document.on('data', (chunk) => chunks.push(chunk));
+        document.on('end', () => resolve(Buffer.concat(chunks)));
+        document.on('error', reject);
 
-    return generatePdfFromHtml(html);
+        document.font('Helvetica-Bold')
+            .fontSize(20)
+            .fillColor('#172b40')
+            .text(title || 'Professional Resume');
+
+        if (target) {
+            document.moveDown(0.25)
+                .font('Helvetica')
+                .fontSize(10)
+                .fillColor('#586a7a')
+                .text(target);
+        }
+
+        document.moveDown(1.5)
+            .font('Helvetica-Bold')
+            .fontSize(13)
+            .fillColor('#172b40')
+            .text('Professional Experience and Qualifications');
+
+        document.moveDown(0.5)
+            .font('Helvetica')
+            .fontSize(11)
+            .fillColor('#202a35')
+            .text(profileText || selfDescription || 'No resume or profile details were provided.', {
+                lineGap: 3,
+                paragraphGap: 7
+            });
+
+        document.end();
+    });
 }
 
 module.exports = { generateInterviewReport, generateResumePdf };
