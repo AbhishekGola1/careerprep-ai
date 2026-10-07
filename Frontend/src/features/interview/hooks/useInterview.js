@@ -1,5 +1,5 @@
 import { getAllInterviewReports, generateInterviewReport, getInterviewReportById, generateResumePdf } from "../services/interview.api"
-import { useCallback, useContext } from "react"
+import { useCallback, useContext, useRef } from "react"
 import { InterviewContext } from "../interview.context.js"
 
 
@@ -12,6 +12,7 @@ export const useInterview = () => {
     }
 
     const { loading, setLoading, report, setReport, reports, setReports } = context
+    const reportsRequestId = useRef(0)
 
     const generateReport = useCallback(async ({ jobDescription, selfDescription, resumeFile }) => {
         setLoading(true)
@@ -39,19 +40,30 @@ export const useInterview = () => {
     }, [setLoading, setReport])
 
     const getReports = useCallback(async () => {
+        const requestId = ++reportsRequestId.current
+        setReports([])
         setLoading(true)
         try {
             const response = await getAllInterviewReports()
             const nextReports = response?.interviewReports ?? []
-            setReports(nextReports)
+            if (requestId === reportsRequestId.current) {
+                setReports(nextReports)
+            }
             return nextReports
         } catch (error) {
             console.log(error)
             return []
         } finally {
-            setLoading(false)
+            if (requestId === reportsRequestId.current) {
+                setLoading(false)
+            }
         }
     }, [setLoading, setReports])
+
+    const clearReports = useCallback(() => {
+        reportsRequestId.current += 1
+        setReports([])
+    }, [setReports])
 
     const getResumePdf = useCallback(async (interviewReportId) => {
         const response = await generateResumePdf({ interviewReportId })
@@ -65,6 +77,6 @@ export const useInterview = () => {
         window.setTimeout(() => window.URL.revokeObjectURL(url), 1000)
     }, [])
 
-    return { loading, report, reports, generateReport, getReportById, getReports, getResumePdf }
+    return { loading, report, reports, generateReport, getReportById, getReports, clearReports, getResumePdf }
 
 }
