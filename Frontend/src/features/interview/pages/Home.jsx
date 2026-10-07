@@ -9,7 +9,7 @@ const MAX_RESUME_SIZE = 3 * 1024 * 1024
 
 const Home = () => {
     const { user, authReady, loading: authLoading, error: authError, handleLogin, handleRegister, handleLogout } = useAuth()
-    const { loading: generationLoading, generateReport, reports, getReports } = useInterview()
+    const { loading: generationLoading, generateReport, reports, getReports, clearReports } = useInterview()
     const [jobDescription, setJobDescription] = useState('')
     const [selfDescription, setSelfDescription] = useState('')
     const [resumeFile, setResumeFile] = useState(null)
@@ -20,8 +20,10 @@ const Home = () => {
     useEffect(() => {
         if (user) {
             getReports()
+        } else {
+            clearReports()
         }
-    }, [user, getReports])
+    }, [user, getReports, clearReports])
 
     const openAuthPrompt = (mode = 'login') => {
         setAuthPromptMode(mode)
@@ -96,7 +98,10 @@ const Home = () => {
     }
 
     const handleLogoutClick = async () => {
-        await handleLogout()
+        const loggedOut = await handleLogout()
+        if (loggedOut) {
+            clearReports()
+        }
     }
 
     return (
