@@ -3,6 +3,14 @@ const mongoose = require('mongoose');
 const { generateInterviewReport, generateResumePdf } = require('../services/ai.service');
 const interviewReportModel = require('../models/interviewReport.model');
 
+function getReportOwnerQuery(user) {
+    const query = { user: user.id };
+    if (user.accountType === 'demo') {
+        query.demoSessionId = user.demoSessionId;
+    }
+    return query;
+}
+
 /**
  * @description Controller to generate interview report based on user self description, resume and job description
  */
@@ -40,11 +48,12 @@ async function generateInterviewReportController(req, res) {
         });
 
         const interviewReport = await interviewReportModel.create({
+            ...interviewReportByAi,
             user: req.user.id,
             resume: resumeText,
             selfDescription: selfDescription?.trim() || '',
             jobDescription: jobDescription.trim(),
-            ...interviewReportByAi
+            ...(req.user.accountType === 'demo' ? { demoSessionId: req.user.demoSessionId } : {})
         });
 
         return res.status(201).json({
@@ -68,7 +77,10 @@ async function generateInterviewReportController(req, res) {
 async function getInterviewReportByIdController(req, res) {
     const { interviewId } = req.params;
 
-    const interviewReport = await interviewReportModel.findOne({ _id: interviewId, user: req.user.id });
+    const interviewReport = await interviewReportModel.findOne({
+        _id: interviewId,
+        ...getReportOwnerQuery(req.user)
+    });
 
     if (!interviewReport) {
         return res.status(404).json({ message: 'Interview report not found' });
@@ -85,7 +97,7 @@ async function getInterviewReportByIdController(req, res) {
  */
 async function getAllInterviewReportsController(req, res) {
     const interviewReports = await interviewReportModel
-        .find({ user: req.user.id })
+        .find(getReportOwnerQuery(req.user))
         .sort({ createdAt: -1 })
         .select('-resume -selfDescription -jobDescription -__v');
 
@@ -108,7 +120,7 @@ async function generateResumePdfController(req, res) {
     try {
         const interviewReport = await interviewReportModel.findOne({
             _id: interviewReportId,
-            user: req.user.id
+            ...getReportOwnerQuery(req.user)
         });
 
         if (!interviewReport) {
