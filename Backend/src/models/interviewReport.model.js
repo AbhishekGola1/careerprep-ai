@@ -103,12 +103,22 @@ const interviewReportSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
     },
+    demoSessionId: {
+        type: String,
+        select: false
+    },
     title: {
         type: String,
         required: [true, 'Job title is required']
     }
 }, {
-    timestamps: true
+    timestamps: true,
+    toJSON: {
+        transform(_document, returnedDocument) {
+            delete returnedDocument.demoSessionId;
+            return returnedDocument;
+        }
+    }
 })
 
 
