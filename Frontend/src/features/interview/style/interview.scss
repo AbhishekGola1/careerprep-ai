@@ -110,12 +110,37 @@ $severity-low:    #3fb950;
         align-items: center;
         flex-shrink: 0;
     }
+
+    &__new-strategy {
+        width: 100%;
+        padding: 0.7rem 0.75rem;
+        border: 1px solid $border-color;
+        border-radius: 0.6rem;
+        background: transparent;
+        color: $text-primary;
+        font: 600 0.82rem $font-stack;
+        cursor: pointer;
+        transition: background-color 0.15s, border-color 0.15s;
+
+        &:hover {
+            background: $bg-panel;
+            border-color: $accent;
+        }
+    }
+
+    .button {
+        width: 100%;
+        padding-inline: 0.75rem;
+        font-size: 0.82rem;
+        white-space: normal;
+    }
 }
 
 
 // ── Content Area ─────────────────────────────────────────────────────────────
 .interview-content {
     flex: 1;
+    min-width: 0;
     padding: 1.75rem 2rem;
     overflow-y: auto;
     min-height: initial;
@@ -490,5 +515,158 @@ $severity-low:    #3fb950;
         color: $severity-low;
         background-color: rgba($severity-low, 0.1);
         border-color: rgba($severity-low, 0.25);
+    }
+}
+
+@media (max-width: 900px) {
+    .interview-page {
+        padding: 1rem;
+    }
+
+    .interview-layout {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+    }
+
+    .interview-divider {
+        display: none;
+    }
+
+    .interview-nav {
+        width: 100%;
+        padding: 1rem;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        border-bottom: 1px solid $border-color;
+
+        .nav-content {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            width: 100%;
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+
+        &__label {
+            display: none;
+        }
+
+        &__item {
+            width: auto;
+            flex: 0 0 auto;
+            white-space: nowrap;
+        }
+
+        &__new-strategy,
+        .button {
+            width: auto;
+            flex: 1 1 0;
+            min-height: 42px;
+        }
+
+        .resume-download-error {
+            flex-basis: 100%;
+        }
+    }
+
+    .interview-content {
+        max-height: none;
+        overflow: visible;
+        padding: 1.5rem;
+    }
+
+    .interview-sidebar {
+        width: 100%;
+        padding: 1.5rem;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+        align-items: start;
+        gap: 1rem;
+        border-top: 1px solid $border-color;
+    }
+
+    .sidebar-divider {
+        display: none;
+    }
+}
+
+@media (max-width: 560px) {
+    .interview-page {
+        padding: 0.5rem;
+    }
+
+    .interview-layout {
+        border-radius: 0.75rem;
+    }
+
+    .interview-nav {
+        padding: 0.75rem;
+
+        &__item {
+            padding: 0.6rem;
+            font-size: 0.78rem;
+        }
+
+        &__new-strategy,
+        .button {
+            font-size: 0.75rem;
+            padding: 0.65rem 0.45rem;
+        }
+    }
+
+    .interview-content {
+        padding: 1rem 0.75rem 1.5rem;
+    }
+
+    .content-header {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+
+        h2 {
+            font-size: 1rem;
+        }
+    }
+
+    .q-card__header {
+        padding: 0.75rem;
+        gap: 0.5rem;
+    }
+
+    .q-card__body {
+        padding: 0.75rem;
+    }
+
+    .roadmap-day {
+        padding-left: 2.75rem;
+
+        &__header {
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+    }
+
+    .roadmap-list::before {
+        left: 20px;
+    }
+
+    .roadmap-day::before {
+        left: 13px;
+    }
+
+    .interview-sidebar {
+        grid-template-columns: 1fr;
+        padding: 1rem;
+    }
+
+    .match-score {
+        align-items: center;
+
+        &__label {
+            align-self: center;
+        }
     }
 }
