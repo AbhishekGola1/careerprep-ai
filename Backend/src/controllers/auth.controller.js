@@ -1,7 +1,33 @@
 const userModel = require('../models/user.model');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { randomUUID } = require('crypto');
 const blacklistTokenModel = require('../models/blacklist.model');
+
+const demoAccountEmail = 'recruiter@example.com';
+
+function createAuthToken(user) {
+    const isDemoAccount = user.email.trim().toLowerCase() === demoAccountEmail;
+    const payload = {
+        id: user._id,
+        accountType: isDemoAccount ? 'demo' : 'user'
+    };
+
+    if (isDemoAccount) {
+        payload.demoSessionId = randomUUID();
+    }
+
+    return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
+}
+
+function setAuthCookie(res, token) {
+    res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        maxAge: 24 * 60 * 60 * 1000
+    });
+}
 
 async function registerUserController(req, res) {
     const { username, email, password } = req.body;
@@ -33,14 +59,8 @@ async function registerUserController(req, res) {
         password: hashedPassword
     });
 
-    const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
-
-    res.cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        maxAge: 24 * 60 * 60 * 1000
-    });
+    const token = createAuthToken(newUser);
+    setAuthCookie(res, token);
 
     return res.status(201).json({
         message: 'User registered successfully',
@@ -71,14 +91,8 @@ async function loginUserController(req, res) {
         return res.status(400).json({ message: 'Invalid email or password' });
     }
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
-
-    res.cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        maxAge: 24 * 60 * 60 * 1000
-    });
+    const token = createAuthToken(user);
+    setAuthCookie(res, token);
 
     return res.status(200).json({
         message: 'User logged in successfully',
