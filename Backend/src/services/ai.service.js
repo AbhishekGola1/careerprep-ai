@@ -145,10 +145,106 @@ async function generateInterviewReport({ resume, selfDescription, jobDescription
     return JSON.parse(response.text);
 }
 
+const resumeSectionNames = new Map([
+    ['summary', 'PROFESSIONAL SUMMARY'],
+    ['professional summary', 'PROFESSIONAL SUMMARY'],
+    ['career summary', 'PROFESSIONAL SUMMARY'],
+    ['objective', 'PROFESSIONAL SUMMARY'],
+    ['career objective', 'PROFESSIONAL SUMMARY'],
+    ['profile', 'PROFESSIONAL SUMMARY'],
+    ['skills', 'SKILLS'],
+    ['technical skills', 'SKILLS'],
+    ['core competencies', 'SKILLS'],
+    ['key skills', 'SKILLS'],
+    ['work experience', 'EXPERIENCE'],
+    ['professional experience', 'EXPERIENCE'],
+    ['experience', 'EXPERIENCE'],
+    ['work history', 'EXPERIENCE'],
+    ['employment history', 'EXPERIENCE'],
+    ['internships', 'EXPERIENCE'],
+    ['projects', 'PROJECTS'],
+    ['personal projects', 'PROJECTS'],
+    ['academic projects', 'PROJECTS'],
+    ['education', 'EDUCATION'],
+    ['academic background', 'EDUCATION'],
+    ['certifications', 'CERTIFICATIONS'],
+    ['certificates', 'CERTIFICATIONS'],
+    ['achievements', 'ACHIEVEMENTS'],
+    ['awards', 'ACHIEVEMENTS'],
+    ['strengths', 'ADDITIONAL INFORMATION'],
+    ['additional information', 'ADDITIONAL INFORMATION'],
+    ['languages', 'ADDITIONAL INFORMATION'],
+    ['volunteer experience', 'VOLUNTEER EXPERIENCE']
+]);
+
+function normalizeResumeLine(line) {
+    return line
+        .replace(/\[([^\]]+)\]\((?:mailto:)?[^)]+\)/gi, '$1')
+        .replace(/^\s*(?:[-*•▪◦]|\d+[.)])\s*/, '• ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function parseResumeSections(resume, selfDescription) {
+    const lines = (resume || selfDescription || '')
+        .split(/\r?\n/)
+        .map(normalizeResumeLine)
+        .filter(Boolean);
+    const headerLines = [];
+    const sections = [];
+    let currentSection;
+    let foundSection = false;
+
+    for (const line of lines) {
+        const normalizedHeading = line.toLowerCase().replace(/[:\s]+$/, '');
+        const sectionName = resumeSectionNames.get(normalizedHeading);
+        if (sectionName) {
+            foundSection = true;
+            currentSection = sections.find((section) => section.name === sectionName);
+            if (!currentSection) {
+                currentSection = { name: sectionName, entries: [] };
+                sections.push(currentSection);
+            }
+            continue;
+        }
+
+        if (!foundSection) {
+            headerLines.push(line);
+        } else {
+            currentSection.entries.push(line);
+        }
+    }
+
+    const isContactLine = (line) =>
+        /@|(?:\+?\d[\d\s().-]{7,})|linkedin|github|portfolio|https?:\/\/|location\s*:/i.test(line);
+    const nameIndex = headerLines.findIndex((line) =>
+        !isContactLine(line) && line.length <= 70 && !/[.!?]$/.test(line)
+    );
+    const name = nameIndex === -1 ? '' : headerLines[nameIndex];
+    const contact = headerLines.filter((line, index) => index !== nameIndex && isContactLine(line));
+    const preface = headerLines.filter((line, index) =>
+        index !== nameIndex && !isContactLine(line)
+    );
+
+    if (preface.length) {
+        sections.unshift({ name: 'PROFESSIONAL SUMMARY', entries: preface });
+    } else if (!sections.length && lines.length && !name && !contact.length) {
+        sections.push({ name: 'PROFESSIONAL SUMMARY', entries: lines });
+    }
+
+    if (!sections.some((section) => section.name === 'PROFESSIONAL SUMMARY') && selfDescription) {
+        sections.unshift({
+            name: 'PROFESSIONAL SUMMARY',
+            entries: selfDescription.split(/\r?\n/).map(normalizeResumeLine).filter(Boolean)
+        });
+    }
+
+    return { name, contact, sections };
+}
+
 function generateResumePdf({ resume, selfDescription, jobDescription, title }) {
-    const profileText = (resume || '').trim() || (selfDescription || '').trim();
-    const target = (jobDescription || '').split(/\r?\n/, 1)[0].slice(0, 160);
-    const document = new PDFDocument({ size: 'A4', margin: 51 });
+    const { name, contact, sections } = parseResumeSections(resume, selfDescription);
+    const document = new PDFDocument({ size: 'A4', margins: { top: 34, right: 38, bottom: 34, left: 38 } });
     const chunks = [];
 
     return new Promise((resolve, reject) => {
@@ -156,33 +252,91 @@ function generateResumePdf({ resume, selfDescription, jobDescription, title }) {
         document.on('end', () => resolve(Buffer.concat(chunks)));
         document.on('error', reject);
 
-        document.font('Helvetica-Bold')
-            .fontSize(20)
-            .fillColor('#172b40')
-            .text(title || 'Professional Resume');
+        const left = document.page.margins.left;
+        const width = document.page.width - left - document.page.margins.right;
+        const bottom = document.page.height - document.page.margins.bottom;
+        const layout = {
+            y: document.page.margins.top,
+            bodyFont: 8.5,
+            bodyLineGap: 1,
+            sectionFont: 9.5,
+            sectionGap: 4
+        };
 
-        if (target) {
-            document.moveDown(0.25)
-                .font('Helvetica')
-                .fontSize(10)
-                .fillColor('#586a7a')
-                .text(target);
+        const drawText = (text, font, fontSize, options = {}) => {
+            document.font(font).fontSize(fontSize);
+            const height = document.heightOfString(text, {
+                width,
+                lineGap: options.lineGap || 0
+            });
+            if (layout.y + height > bottom) {
+                return false;
+            }
+            document.fillColor('#111111').text(text, left, layout.y, {
+                width,
+                lineGap: options.lineGap || 0
+            });
+            layout.y += height + (options.after || 0);
+            return true;
+        };
+
+        const drawFittingEntry = (entry) => {
+            const text = entry;
+            if (drawText(text, 'Helvetica', layout.bodyFont, {
+                lineGap: layout.bodyLineGap,
+                after: 1
+            })) {
+                return true;
+            }
+
+            const words = text.split(/\s+/);
+            let low = 0;
+            let high = words.length - 1;
+            let fittingText = '';
+            while (low <= high) {
+                const middle = Math.floor((low + high) / 2);
+                const candidate = `${words.slice(0, middle).join(' ')}...`;
+                document.font('Helvetica').fontSize(layout.bodyFont);
+                const height = document.heightOfString(candidate, { width, lineGap: layout.bodyLineGap });
+                if (layout.y + height <= bottom) {
+                    fittingText = candidate;
+                    low = middle + 1;
+                } else {
+                    high = middle - 1;
+                }
+            }
+            if (fittingText) {
+                drawText(fittingText, 'Helvetica', layout.bodyFont, {
+                    lineGap: layout.bodyLineGap,
+                    after: 1
+                });
+            }
+            return false;
+        };
+
+        drawText(name || 'PROFESSIONAL RESUME', 'Helvetica-Bold', 16, { after: 2 });
+        if (title) {
+            drawText(title, 'Helvetica-Bold', 9.5, { after: 2 });
+        }
+        if (contact.length) {
+            drawText(contact.join('  |  '), 'Helvetica', 8, { after: 5 });
         }
 
-        document.moveDown(1.5)
-            .font('Helvetica-Bold')
-            .fontSize(13)
-            .fillColor('#172b40')
-            .text('Professional Experience and Qualifications');
+        for (const section of sections) {
+            if (!section.entries.length) {
+                continue;
+            }
 
-        document.moveDown(0.5)
-            .font('Helvetica')
-            .fontSize(11)
-            .fillColor('#202a35')
-            .text(profileText || selfDescription || 'No resume or profile details were provided.', {
-                lineGap: 3,
-                paragraphGap: 7
-            });
+            layout.y += layout.sectionGap;
+            if (!drawText(section.name, 'Helvetica-Bold', layout.sectionFont, { after: 1 })) {
+                break;
+            }
+            for (const entry of section.entries) {
+                if (!drawFittingEntry(entry)) {
+                    break;
+                }
+            }
+        }
 
         document.end();
     });
