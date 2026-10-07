@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router'
 import { useAuth } from '../hooks/useAuth'
+import '../auth.form.scss'
 
 const Register = () => {
 
@@ -21,7 +22,7 @@ const Register = () => {
     }
 
   return (
-    <main>
+    <main className='auth-page'>
         <div className="form-container">
             <h1>Register</h1>
 
